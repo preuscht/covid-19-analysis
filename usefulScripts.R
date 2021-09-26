@@ -17,3 +17,4 @@ by_state_mean <- by_state %>% summarise(
 )
 
 current_usa <- read_csv("https://raw.githubusercontent.com/BloombergGraphics/covid-vaccine-tracker-data/master/data/current-usa.csv")
+Trips_by_Distance <- read_csv("https://data.bts.gov/api/views/w96p-f2qv/rows.csv?accessType=DOWNLOAD")
