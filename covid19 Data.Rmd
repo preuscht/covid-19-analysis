@@ -1,0 +1,114 @@
+---
+title: "Covid-19 Data"
+author: "Taylor Preusch"
+date: "9/22/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(tinytex)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r data creation}
+
+url_in <- "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/"
+
+file_names <- c("time_series_covid19_confirmed_global.csv",
+                "time_series_covid19_deaths_global.csv",
+                "time_series_covid19_confirmed_US.csv",
+                "time_series_covid19_deaths_US.csv")
+urls <- str_c(url_in,file_names)
+urls
+```
+
+
+```{r data download}
+
+raw_global_cases <- read_csv(urls[1])
+raw_global_deaths <- read_csv(urls[2])
+raw_us_cases <- read_csv(urls[3])
+raw_us_deaths <- read_csv(urls[4])
+
+```
+
+
+```{r data creation}
+
+current_usa <- read_csv("https://raw.githubusercontent.com/BloombergGraphics/covid-vaccine-tracker-data/master/data/current-usa.csv")
+usa_vaccine_time_series_by_state <- read_csv("https://raw.githubusercontent.com/BloombergGraphics/covid-vaccine-tracker-data/master/data/historical-usa-doses-administered.csv")
+Trips_by_Distance <- read_csv("https://data.bts.gov/api/views/w96p-f2qv/rows.csv?accessType=DOWNLOAD")
+
+```
+```{r trip data creation}
+
+by_level <- Trips_by_Distance %>% group_by(Level)
+
+by_level_mean <- by_level %>% summarise(
+  pop_not_home = mean(`Population Not Staying at Home`),
+  po_at_home = mean(`Population Staying at Home`)
+)
+
+by_state <- filter(Trips_by_Distance, Level == "State") %>% group_by(`State Postal Code`,`Date`)
+
+by_state_mean <- by_state %>% summarise(
+  pop_not_home = mean(`Population Not Staying at Home`),
+  po_at_home = mean(`Population Staying at Home`)
+)
+
+
+```
+
+```{r vaccine data creation}
+
+
+```
+
+```{r pivots cleaning}
+global_cases <- select(raw_global_cases, -1, -3, -4)
+us_cases <- select(raw_us_cases, -1:-6,-8,-9, -10, -11)
+
+global_deaths <- select(raw_global_deaths, -1, -3, -4)
+us_deaths <- select(raw_us_deaths, -1:-6,-8,-9, -10, -11)
+
+```
+
+```{r pivots}
+
+global_cases_pivot <- global_cases %>% pivot_longer(!"Country/Region", names_to = "date", values_to = "cases") %>% mutate(date = mdy(date))
+
+us_cases_pivot <- us_cases %>% pivot_longer(!"Province_State", names_to = "date", values_to = "cases") %>% mutate(date = mdy(date))
+
+global_deaths_pivot <- global_deaths %>% pivot_longer(!"Country/Region", names_to = "date", values_to = "cases") %>% mutate(date = mdy(date)) %>% rename(Country_Region.
+                                 )
+
+us_deaths_pivot <- us_deaths %>% pivot_longer(!c("Province_State", "Population"), names_to = "date", values_to = "cases") %>% mutate(date = mdy(date))
+
+```
+
+```{r joins}
+
+global <- global %>% left_join()
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
