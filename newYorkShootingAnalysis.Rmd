@@ -1,0 +1,117 @@
+---
+title: "Analysis of New York Shooting Data"
+author: ''
+date: "9/12/2021"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(tinytex)
+```
+
+Conclusion: This was a fun dataset to work with. I focused on 3 variables that I felt would be predictive of a shooting: Location, Hour of the day, and BORO. I noticed that my choice of variables were due to my own biases. We hear that certain parts of New York are more dangerous then others. We hear not to go into central park at night and that shootings can be gang related, concentrated in public housing. The analysis that I conducted was to confirm if my biases were correct or incorrect. I was hoping for an unexpected outlier but it appears most shootings do happen at night, outside of manhattan, and in public housing or bars. 
+
+```{r data download}
+url_in <- "https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD"
+
+baseData <- read_csv(url_in)
+
+```
+In order to get the Hour of each shooting I had to separate the OCCUR_TIME field. 
+
+```{r data cleanse}
+
+cleanDate <- baseData %>% mutate(date = mdy(OCCUR_DATE)) 
+
+cleanDate <- cleanDate %>% separate(OCCUR_TIME, c("Hour", "Minute", "Second"), ":")
+
+summary(cleanDate)
+
+```
+Many locations were None or NA. I chose to drop them from my data set while graphing. There were upwards of 30 different locations which were too many for the graphs which I choose. I decided to limit to the top 10 for graphing purposes.
+
+In this section I also group by hour as well created my multivariate data set for the model.
+
+```{r data grouping}
+
+shootingByLocation <- cleanDate %>% drop_na() %>% filter(LOCATION_DESC != "NONE") %>% group_by(LOCATION_DESC) %>% summarize(shootings = n())
+
+top10Locations <- shootingByLocation %>% slice_max(shootings, n=10)
+
+shootingByTime <- cleanDate %>% group_by(Hour) %>% summarize(shootings = n())
+
+shootingByBORO <- cleanDate %>% group_by(BORO) %>% summarize(shootings = n())
+
+multiVariateData <- cleanDate %>% drop_na() %>% group_by(LOCATION_DESC, BORO, Hour) %>% summarize(shootings = n())
+
+```
+
+## Including Plots
+
+Below are my plots of each datapoint versus the count of shootings. 
+
+```{r pressure, echo=FALSE}
+ggplot(top10Locations, aes(x="", y=shootings, fill=LOCATION_DESC)) +
+  geom_bar(stat="identity", width=1) +
+  coord_polar("y", start=0)
+
+ggplot(top10Locations, aes(x=LOCATION_DESC, y=shootings)) + 
+  geom_bar(stat = "identity") + 
+  theme(axis.text.x = element_text(angle = 90))
+
+ggplot(shootingByBORO, aes(x="", y=shootings, fill=BORO)) +
+  geom_bar(stat="identity", width=1) +
+  coord_polar("y", start=0)
+
+ggplot(shootingByBORO, aes(x=BORO, y=shootings)) + 
+  geom_bar(stat = "identity") + 
+  theme(axis.text.x = element_text(angle = 90))
+
+ggplot(shootingByTime, aes(x="", y=shootings, fill=Hour)) +
+  geom_bar(stat="identity", width=1) +
+  coord_polar("y", start=0)
+
+ggplot(shootingByTime, aes(x=Hour, y=shootings)) + 
+  geom_bar(stat = "identity")
+```
+
+Below I run my multivariate linear model with three variables versus shootings. Time of day, Location, and BORO have statistically significant results. 
+
+```{r data model}
+mod <- lm(shootings ~ Hour+BORO+LOCATION_DESC, data = multiVariateData)
+
+summary(mod)
+```
+```{r data model refine}
+pred = predict(mod, multiVariateData, interval = "prediction")
+conf = predict(mod, multiVariateData, interval = "confidence")
+pred <- as.data.frame(pred)
+multiVariateDatawPred <- data.frame(pred,multiVariateData)
+#multiVariateDatawPred <- multiVariateData %>% rowwise() %>% mutate(predicted = #list(predict(mod, interval = "prediction")))
+
+#multiVariateDatawPred$predicted
+
+```
+
+I finally plotted the predictions versus each feature. These plots give you the range of predictions and the coverage that the variable has. Location seems most closely tied with shootings. However it does underpredict the amount of shootings in public housing and night clubs. 
+
+```{r model plot}
+
+multiVariateDatawPred %>% ggplot() + geom_point(aes(x = Hour, y = shootings), color = "blue")+
+  geom_point(aes(x = Hour, y = fit), color ="red")
+
+multiVariateDatawPred %>% ggplot() + geom_point(aes(x = BORO, y = shootings), color = "blue")+
+  geom_point(aes(x = BORO, y = fit), color ="red")
+
+multiVariateDatawPred %>% ggplot() + geom_point(aes(x = LOCATION_DESC, y = shootings), color = "blue")+
+  geom_point(aes(x = LOCATION_DESC, y = fit), color ="red")+theme(axis.text.x = element_text(angle = 90))
+
+```
